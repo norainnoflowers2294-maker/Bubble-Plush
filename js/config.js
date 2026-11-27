@@ -6,7 +6,7 @@
 export const APP = {
   name: 'Bubble Plush',
   /** Bumped whenever the service worker shell changes (keep in sync with sw.js). */
-  shellVersion: 'v7',
+  shellVersion: 'v8',
 };
 
 /**

@@ -659,6 +659,32 @@ button,
   transition: none;
 }
 
+/* Diagnostics: a whisper at the bottom of About, not a dashboard. */
+.diag {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 14px;
+  margin: 0;
+  font-family: var(--font-chat);
+  font-size: 0.6875rem; /* 11px — readable, never shouting */
+  line-height: 1.55;
+}
+
+.diag__key,
+.diag__val {
+  margin: 0;
+}
+
+.diag__key {
+  color: var(--ink-faint);
+}
+
+.diag__val {
+  color: var(--ink-soft);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
 .card__note {
   margin: 0;
   font-family: var(--font-chat);

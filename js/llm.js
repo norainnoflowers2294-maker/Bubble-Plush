@@ -38,6 +38,25 @@ const logger = {
 const CHARS_PER_TOKEN = 4;
 
 /**
+ * Pick a context window that leaves room for the weights.
+ *
+ * A phone has one memory budget for everything: weights + KV cache + compute
+ * scratch. The KV cache grows with the context window, so a 4096-token window
+ * that is free on a 350 MB model is what pushes a 1.2 GB model over the edge.
+ * Shrinking the window is the cheapest way to make a bigger file fit.
+ *
+ * @param {number} bytes size of the .gguf on disk
+ * @returns {number} context size to request from llama.cpp
+ */
+export function contextForSize(bytes) {
+  const mb = (bytes || 0) / (1024 * 1024);
+  if (mb <= 500) return MODEL.ctxSize; // 4096
+  if (mb <= 1000) return 3072;
+  if (mb <= 1600) return 2048;
+  return 1536;
+}
+
+/**
  * The single system message, assembled from the two Settings tabs.
  *
  * Order is fixed: AI rules first, then the character/scenario. With both
@@ -85,6 +104,7 @@ export function buildPrompt({
   characterScenario = '',
   messages,
   maxTurns = MODEL.maxTurns,
+  ctxSize = MODEL.ctxSize,
 }) {
   const systemPrompt = composeSystemPrompt(aiRules, characterScenario);
   const newMessage = messages[messages.length - 1];
@@ -97,10 +117,7 @@ export function buildPrompt({
   }
 
   // 2. Character budget: drop the oldest pairs until the window fits.
-  const budget = Math.max(
-    1200,
-    (MODEL.ctxSize - MODEL.maxTokens - 512) * CHARS_PER_TOKEN
-  );
+  const budget = Math.max(1200, (ctxSize - MODEL.maxTokens - 512) * CHARS_PER_TOKEN);
   const baseCost = (systemPrompt?.length ?? 0) + (newMessage?.content.length ?? 0);
   let windowCost = window.reduce((sum, message) => sum + message.content.length, 0);
   while (window.length >= 2 && baseCost + windowCost > budget) {
@@ -132,6 +149,9 @@ export class LocalModel {
   /** 'idle' | 'loading' | 'ready' */
   #state = 'idle';
 
+  /** Context window actually requested; drives the prompt budget. */
+  #ctxSize = MODEL.ctxSize;
+
   get state() {
     return this.#state;
   }
@@ -156,14 +176,19 @@ export class LocalModel {
         { logger }
       );
 
+      // Small models get the full window; big files get a shorter one so the
+      // weights still fit in the tab's memory.
+      const ctxSize = contextForSize(blob.size);
+
       await wllama.loadModel([blob], {
-        n_ctx: MODEL.ctxSize,
+        n_ctx: ctxSize,
         // Batched prompt processing: bigger batch = faster "reading" of the
         // system prompt and history before the first token appears.
         n_batch: 256,
       });
 
       this.#wllama = wllama;
+      this.#ctxSize = ctxSize;
       this.#state = 'ready';
     } catch (error) {
       this.#state = 'idle';
@@ -188,11 +213,17 @@ export class LocalModel {
   async *generate({ aiRules, characterScenario, messages, signal }) {
     if (!this.isReady) throw new Error('The model is not loaded yet.');
 
-    const prompt = buildPrompt({ aiRules, characterScenario, messages });
+    const prompt = buildPrompt({
+      aiRules,
+      characterScenario,
+      messages,
+      ctxSize: this.#ctxSize,
+    });
 
     const stream = await this.#wllama.createChatCompletion(prompt, {
       stream: true,
-      nPredict: MODEL.maxTokens,
+      // Never ask for more room than the window can give.
+      nPredict: Math.min(MODEL.maxTokens, Math.max(128, Math.floor(this.#ctxSize / 4))),
       sampling: MODEL.sampling,
       abortSignal: signal,
       // Re-evaluate the prompt each turn. Our sliding window changes the prefix
@@ -211,6 +242,7 @@ export class LocalModel {
     const wllama = this.#wllama;
     this.#wllama = null;
     this.#state = 'idle';
+    this.#ctxSize = MODEL.ctxSize;
     if (wllama) {
       try {
         await wllama.exit();

@@ -78,6 +78,7 @@ class UI {
       saveCharacter: document.getElementById('btn-save-character'),
       saveRules: document.getElementById('btn-save-rules'),
       storageNote: document.getElementById('storage-note'),
+      diag: document.getElementById('diag'),
       fileInput: document.getElementById('file-input'),
       toast: document.getElementById('toast'),
     };
@@ -443,6 +444,19 @@ class UI {
 
   setStorageNote(text) {
     this.els.storageNote.textContent = text ?? '';
+  }
+
+  /**
+   * Quiet key/value list under About, for when the app misbehaves on a phone
+   * with no console to open.
+   * @param {Array<{label: string, value: string}>} rows
+   */
+  setDiagnostics(rows) {
+    const nodes = [];
+    for (const { label, value } of rows) {
+      nodes.push(el('dt', 'diag__key', label), el('dd', 'diag__val', value));
+    }
+    this.els.diag.replaceChildren(...nodes);
   }
 
   /* -------------------------------------------------------------- toast */

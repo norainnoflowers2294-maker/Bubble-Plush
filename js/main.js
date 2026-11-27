@@ -12,7 +12,7 @@
  *   4. if there is no model, show the .gguf picker instead
  */
 
-import { TITLE_MAX_LENGTH, UNTITLED } from './config.js';
+import { APP, TITLE_MAX_LENGTH, UNTITLED } from './config.js';
 import { openDB, putConversation, getRecentConversation } from './db.js';
 import {
   getModelMeta,
@@ -23,6 +23,7 @@ import {
   formatBytes,
   getStorageEstimate,
   requestPersistence,
+  supportsOPFS,
 } from './model-store.js';
 import { localModel } from './llm.js';
 import { ui } from './ui.js';
@@ -107,6 +108,57 @@ async function persistConversation() {
   if (!state.conversation) return;
   state.conversation.lastModified = Date.now();
   await putConversation(state.conversation);
+}
+
+/**
+ * A 13-byte wasm module whose entire content is a 64-bit memory. Engines that
+ * don't implement the Memory64 proposal refuse it, which is precisely the
+ * failure that used to greet iPhone users, so it's worth showing.
+ */
+const MEMORY64_PROBE = new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 5, 3, 1, 4, 1]);
+
+/** "iOS 17.4 · Safari 17.4", "Chrome 133", … — just enough to identify the engine. */
+function describeEngine() {
+  const ua = navigator.userAgent;
+  const pick = (re) => ua.match(re)?.[1]?.replace(/_/g, '.');
+
+  const ios = pick(/\bOS (\d+(?:_\d+)*)/);
+  if (ios) {
+    const safari = pick(/Version\/(\d+(?:\.\d+)?)/);
+    return safari ? `iOS ${ios} · Safari ${safari}` : `iOS ${ios}`;
+  }
+
+  return (
+    (pick(/Chrome\/(\d+)/) && `Chrome ${pick(/Chrome\/(\d+)/)}`) ||
+    (pick(/Firefox\/(\d+)/) && `Firefox ${pick(/Firefox\/(\d+)/)}`) ||
+    (pick(/Version\/(\d+(?:\.\d+)?)/) && `Safari ${pick(/Version\/(\d+(?:\.\d+)?)/)}`) ||
+    'unknown'
+  );
+}
+
+function describeWasm() {
+  if (typeof WebAssembly === 'undefined') return 'missing';
+  try {
+    return WebAssembly.validate(MEMORY64_PROBE) ? 'ok · 64-bit' : 'ok · 32-bit only';
+  } catch {
+    return 'ok';
+  }
+}
+
+async function updateDiagnostics() {
+  let persisted = false;
+  try {
+    persisted = Boolean(await navigator.storage?.persisted?.());
+  } catch {
+    /* Not exposed: treat as best-effort. */
+  }
+
+  ui.setDiagnostics([
+    { label: 'Engine', value: describeEngine() },
+    { label: 'WebAssembly', value: describeWasm() },
+    { label: 'Storage', value: `${supportsOPFS() ? 'OPFS' : 'IndexedDB'} · ${persisted ? 'persistent' : 'best-effort'}` },
+    { label: 'Shell', value: APP.shellVersion },
+  ]);
 }
 
 /** Turn raw errors into something a human can act on. */
@@ -422,6 +474,7 @@ async function boot() {
       ui.renderModelInfo(state.modelMeta ?? null, state.modelMeta ? formatBytes(state.modelMeta.size) : '');
       ui.setPromptFields(state.conversation);
       updateStorageNote();
+      updateDiagnostics();
     },
     onCloseSettings: () => {},
     onPickModel: () => document.getElementById('file-input').click(),
@@ -456,6 +509,7 @@ async function boot() {
   }
 
   updateStorageNote();
+  updateDiagnostics();
   registerServiceWorker();
 }
 
