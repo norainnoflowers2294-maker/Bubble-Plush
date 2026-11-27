@@ -1,0 +1,806 @@
+/* ==========================================================================
+   Bubble Plush — layout & components
+   No framework, no utility soup: a handful of semantic blocks that map 1:1
+   to the DOM in index.html. Everything is phone-first (iOS Safari) and then
+   relaxed for wider screens.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Reset
+   -------------------------------------------------------------------------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+/* Warm light bleeding in from the top so the flat off-white reads as "soft"
+   instead of "unfinished". Pure CSS, no image payload. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(70% 42% at 50% -12%, rgba(255, 201, 168, 0.4), transparent 72%),
+    radial-gradient(45% 28% at 105% -4%, rgba(255, 140, 163, 0.22), transparent 70%);
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+input,
+textarea {
+  font: inherit;
+  color: inherit;
+  font-size: var(--text-base); /* 16px: iOS must not zoom on focus */
+}
+
+:focus-visible {
+  outline: 2px solid var(--pink-accent);
+  outline-offset: 2px;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+/* --------------------------------------------------------------------------
+   2. App shell
+   A 3-row grid (header / log / composer) sized to the *visual* viewport.
+   Using grid instead of `position: fixed` for the composer means the iOS
+   keyboard shrinks the log instead of covering the input.
+   -------------------------------------------------------------------------- */
+.app {
+  position: relative;
+  z-index: 1;
+  height: var(--app-height);
+  max-height: var(--app-height);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+}
+
+/* --------------------------------------------------------------------------
+   3. Header
+   -------------------------------------------------------------------------- */
+.header {
+  padding: calc(var(--safe-top) + 6px) 10px 6px 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-veil);
+  -webkit-backdrop-filter: saturate(180%) blur(14px);
+  backdrop-filter: saturate(180%) blur(14px);
+  border-bottom: 1px solid var(--line);
+  min-height: var(--header-h);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  flex: 1;
+}
+
+.brand__mark {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 32% 28%, #fff 0 18%, transparent 46%),
+    radial-gradient(circle at 70% 74%, var(--peach) 0, #ffa0b6 42%, var(--pink-accent) 100%);
+  box-shadow: 0 0 12px rgba(255, 92, 138, 0.35);
+}
+
+.brand__name {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.brand__sub {
+  display: block;
+  font-family: var(--font-chat);
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--ink-faint);
+  letter-spacing: 0.01em;
+}
+
+.header__actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+}
+
+/* --------------------------------------------------------------------------
+   4. Icon buttons
+   -------------------------------------------------------------------------- */
+.icon-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--r-pill);
+  display: grid;
+  place-items: center;
+  color: var(--ink-soft);
+  transition: background-color 0.18s var(--ease-soft), color 0.18s var(--ease-soft),
+    transform 0.12s var(--ease-soft);
+}
+
+.icon-btn:hover {
+  background: var(--pink-wash);
+  color: var(--pink-accent);
+}
+
+.icon-btn:active {
+  transform: scale(0.92);
+}
+
+.icon-btn svg {
+  width: 21px;
+  height: 21px;
+  stroke-width: 1.7;
+}
+
+/* --------------------------------------------------------------------------
+   5. Chat log
+   -------------------------------------------------------------------------- */
+.log {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 14px 14px 6px;
+}
+
+.log::-webkit-scrollbar {
+  display: none;
+}
+
+.log__inner {
+  max-width: 640px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  min-height: 100%;
+}
+
+.msg {
+  display: flex;
+  animation: rise 0.32s var(--ease-soft) both;
+}
+
+.msg--user {
+  justify-content: flex-end;
+}
+
+.msg--ai {
+  justify-content: flex-start;
+}
+
+.bubble {
+  max-width: min(82%, 30rem);
+  padding: 10px 14px;
+  font-family: var(--font-chat);
+  font-size: 15.5px;
+  line-height: 1.5;
+  letter-spacing: 0.001em;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  border-radius: var(--r-bubble);
+}
+
+/* User: the only saturated pink surface in the app. */
+.msg--user .bubble {
+  background: linear-gradient(178deg, #ff97ac, var(--pink-user) 55%, var(--pink-user-deep));
+  color: #fff;
+  font-weight: 450;
+  border-bottom-right-radius: var(--r-tail);
+  box-shadow: 0 2px 10px rgba(255, 92, 138, 0.22);
+}
+
+/* AI: pure white card on the warm background, no border needed. */
+.msg--ai .bubble {
+  background: var(--surface);
+  color: var(--ink);
+  border-bottom-left-radius: var(--r-tail);
+  box-shadow: var(--shadow-soft);
+}
+
+/* Slim caret shown while tokens are still arriving. */
+.bubble--streaming::after {
+  content: '';
+  display: inline-block;
+  width: 2.5px;
+  height: 1.05em;
+  margin-left: 3px;
+  vertical-align: -0.16em;
+  border-radius: 2px;
+  background: linear-gradient(180deg, var(--pink-user), var(--pink-accent));
+  opacity: 0.8;
+  animation: caret 1.05s steps(2, start) infinite;
+}
+
+/* --------------------------------------------------------------------------
+   6. Orb — the only "tech" flourish in the UI, and it stays soft.
+   Layers: blurred conic aura (peach → white → mint → pink), glossy core,
+   and a specular highlight. All gradients, no images.
+   -------------------------------------------------------------------------- */
+.orb {
+  --orb-size: 46px;
+  position: relative;
+  width: var(--orb-size);
+  height: var(--orb-size);
+  flex: none;
+  border-radius: 50%;
+  isolation: isolate;
+}
+
+.orb--sm {
+  --orb-size: 15px;
+}
+
+.orb__aura {
+  position: absolute;
+  inset: -42%;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    #ffd9c7,
+    #fff7f9,
+    var(--mint),
+    #fff7f9,
+    var(--pink-accent),
+    #ffb4c4,
+    #ffd9c7
+  );
+  filter: blur(11px);
+  opacity: 0.62;
+  z-index: -1;
+  animation: orb-spin 9s linear infinite, orb-glow 2.6s ease-in-out infinite;
+}
+
+.orb__core {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 33% 27%, #fff 0%, rgba(255, 255, 255, 0.9) 15%, rgba(255, 255, 255, 0) 44%),
+    radial-gradient(circle at 68% 76%, var(--peach) 0%, #ffa9bc 34%, var(--pink-accent) 72%, #ff86a8 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.65),
+    inset 0 -4px 10px rgba(255, 92, 138, 0.35),
+    0 0 16px rgba(255, 92, 138, 0.35),
+    0 0 38px rgba(255, 140, 163, 0.26);
+  animation: orb-breathe 2.6s ease-in-out infinite;
+}
+
+.orb__core::after {
+  content: '';
+  position: absolute;
+  inset: 13%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 32% 26%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0) 56%);
+  mix-blend-mode: screen;
+}
+
+/* Orb row sits at the end of the log while the model thinks. */
+.orb-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 4px 6px;
+  animation: rise 0.3s var(--ease-soft) both;
+}
+
+.orb-row__label {
+  font-family: var(--font-chat);
+  font-size: var(--text-sm);
+  color: var(--ink-faint);
+}
+
+/* --------------------------------------------------------------------------
+   7. Empty state / onboarding
+   -------------------------------------------------------------------------- */
+.empty {
+  margin: auto;
+  padding: 28px 18px 36px;
+  max-width: 22rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+  animation: rise 0.45s var(--ease-soft) both;
+}
+
+.empty__title {
+  margin: 6px 0 0;
+  font-size: var(--text-xl);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+.empty__body {
+  margin: 0;
+  font-family: var(--font-chat);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+  color: var(--ink-soft);
+}
+
+.empty__hint {
+  font-family: var(--font-chat);
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+}
+
+/* --------------------------------------------------------------------------
+   8. Composer
+   -------------------------------------------------------------------------- */
+.composer {
+  padding: 6px 12px calc(8px + var(--safe-bottom));
+  background: linear-gradient(to top, var(--bg) 62%, rgba(255, 248, 249, 0));
+}
+
+.composer__inner {
+  max-width: 640px;
+  margin: 0 auto;
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  padding: 5px 5px 5px 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 26px;
+  box-shadow: var(--shadow-lift);
+  transition: border-color 0.2s var(--ease-soft), box-shadow 0.2s var(--ease-soft);
+}
+
+.composer__inner:focus-within {
+  border-color: rgba(255, 92, 138, 0.4);
+  box-shadow: var(--shadow-lift), 0 0 0 4px rgba(255, 92, 138, 0.08);
+}
+
+.composer__input {
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  max-height: 132px;
+  padding: 9px 0;
+  border: 0;
+  background: transparent;
+  font-family: var(--font-chat);
+  line-height: 1.45;
+  resize: none;
+  outline: none;
+  scrollbar-width: none;
+}
+
+.composer__input::-webkit-scrollbar {
+  display: none;
+}
+
+.composer__input::placeholder {
+  color: var(--ink-faint);
+}
+
+.composer__input:disabled {
+  color: var(--ink-faint);
+}
+
+.send {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: linear-gradient(160deg, #ff7fa0, var(--pink-accent));
+  box-shadow: 0 4px 12px rgba(255, 92, 138, 0.32);
+  transition: transform 0.12s var(--ease-soft), opacity 0.18s var(--ease-soft),
+    filter 0.18s var(--ease-soft);
+}
+
+.send:active {
+  transform: scale(0.9);
+}
+
+.send:disabled {
+  opacity: 0.38;
+  box-shadow: none;
+  cursor: default;
+}
+
+.send svg {
+  width: 19px;
+  height: 19px;
+}
+
+/* While generating, the same button becomes "stop". */
+.send--stop {
+  background: var(--surface);
+  color: var(--ink-soft);
+  border: 1px solid var(--line-strong);
+  box-shadow: var(--shadow-press);
+}
+
+/* Quiet status line above the composer (waking up, downloading, errors). */
+.status {
+  max-width: 640px;
+  margin: 0 auto 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-family: var(--font-chat);
+  font-size: var(--text-xs);
+  color: var(--ink-soft);
+}
+
+.status__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 11px 5px 8px;
+  background: var(--pink-wash);
+  border-radius: var(--r-pill);
+  color: var(--pink-accent);
+  font-weight: 500;
+}
+
+/* Progress is a number, not a bar: it can't be clipped by the pill's curve and
+   it survives a very long copy without looking stalled. */
+.status__pct {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.72;
+}
+
+/* --------------------------------------------------------------------------
+   9. Settings sheet
+   -------------------------------------------------------------------------- */
+.sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  transform: translateY(100%);
+  visibility: hidden;
+  transition: transform 0.36s var(--ease-soft), visibility 0s linear 0.36s;
+}
+
+.sheet.is-open {
+  transform: translateY(0);
+  visibility: visible;
+  transition: transform 0.36s var(--ease-soft), visibility 0s;
+}
+
+.sheet__header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: calc(var(--safe-top) + 6px) 10px 6px 6px;
+  min-height: var(--header-h);
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-veil);
+  -webkit-backdrop-filter: saturate(180%) blur(14px);
+  backdrop-filter: saturate(180%) blur(14px);
+}
+
+.sheet__title {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.sheet__body {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px 14px calc(28px + var(--safe-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 640px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  padding: 16px;
+  box-shadow: var(--shadow-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.card__label {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.card__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.card__title {
+  font-size: var(--text-base);
+  font-weight: 550;
+}
+
+.card__meta {
+  font-family: var(--font-chat);
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+  margin-top: 2px;
+}
+
+.card__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.card__note {
+  margin: 0;
+  font-family: var(--font-chat);
+  font-size: var(--text-xs);
+  line-height: 1.55;
+  color: var(--ink-faint);
+}
+
+/* --------------------------------------------------------------------------
+   10. Buttons & fields
+   -------------------------------------------------------------------------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 10px 16px;
+  border-radius: var(--r-pill);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: 550;
+  letter-spacing: 0.01em;
+  transition: transform 0.12s var(--ease-soft), background-color 0.18s var(--ease-soft),
+    opacity 0.18s var(--ease-soft);
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.btn--primary {
+  background: linear-gradient(160deg, #ff7fa0, var(--pink-accent));
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(255, 92, 138, 0.28);
+}
+
+.btn--ghost {
+  background: var(--pink-wash);
+  color: var(--pink-accent);
+}
+
+.btn--quiet {
+  background: transparent;
+  color: var(--ink-soft);
+  border: 1px solid var(--line-strong);
+}
+
+.btn--danger {
+  background: transparent;
+  color: var(--pink-accent);
+  border: 1px solid rgba(255, 92, 138, 0.28);
+}
+
+.btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.field__label {
+  font-size: var(--text-sm);
+  font-weight: 550;
+  color: var(--ink-soft);
+}
+
+.field__hint {
+  font-family: var(--font-chat);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  color: var(--ink-faint);
+}
+
+.field__input {
+  width: 100%;
+  min-height: 96px;
+  padding: 12px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  background: var(--bg);
+  font-family: var(--font-chat);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+  resize: none;
+  outline: none;
+  transition: border-color 0.18s var(--ease-soft), box-shadow 0.18s var(--ease-soft);
+}
+
+.field__input:focus {
+  border-color: rgba(255, 92, 138, 0.45);
+  box-shadow: 0 0 0 4px rgba(255, 92, 138, 0.08);
+}
+
+/* --------------------------------------------------------------------------
+   11. Toast
+   -------------------------------------------------------------------------- */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--safe-bottom) + 92px);
+  z-index: 60;
+  transform: translate(-50%, 12px);
+  opacity: 0;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(88vw, 26rem);
+  padding: 10px 16px;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-lift);
+  font-family: var(--font-chat);
+  font-size: var(--text-sm);
+  color: var(--ink);
+  transition: opacity 0.24s var(--ease-soft), transform 0.24s var(--ease-soft);
+}
+
+.toast::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--pink-accent);
+}
+
+.toast.is-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+/* --------------------------------------------------------------------------
+   12. Motion
+   -------------------------------------------------------------------------- */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes orb-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.055);
+  }
+}
+
+@keyframes orb-glow {
+  0%,
+  100% {
+    opacity: 0.52;
+  }
+  50% {
+    opacity: 0.82;
+  }
+}
+
+@keyframes orb-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes caret {
+  50% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* Wider screens: keep the phone proportions, just centre them. */
+@media (min-width: 720px) {
+  .app {
+    max-width: 720px;
+    margin: 0 auto;
+    border-inline: 1px solid var(--line);
+  }
+
+  /* The sheet is fixed to the viewport, so it needs its own column. */
+  .sheet {
+    max-width: 720px;
+    margin: 0 auto;
+    border-inline: 1px solid var(--line);
+  }
+}

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Bubble Plush</title>
+
+    <!-- viewport-fit=cover is what makes env(safe-area-inset-*) non-zero,
+         which the composer needs to clear the iPhone home-swipe bar. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="description" content="A soft, offline chat companion that runs entirely on your phone." />
+    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#FFF8F9" />
+
+    <!-- iOS "Add to Home Screen" behaviour -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Bubble Plush" />
+    <meta name="format-detection" content="telephone=no" />
+
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./assets/icons/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./assets/icons/apple-touch-icon.png" />
+
+    <link rel="stylesheet" href="./css/tokens.css" />
+    <link rel="stylesheet" href="./css/app.css" />
+  </head>
+
+  <body>
+    <div class="app" id="app">
+      <!-- ============================ Header ============================ -->
+      <header class="header">
+        <div class="brand">
+          <span class="brand__mark" aria-hidden="true"></span>
+          <div>
+            <span class="brand__name">Bubble Plush</span>
+            <span class="brand__sub" id="brand-sub">on-device</span>
+          </div>
+        </div>
+
+        <div class="header__actions">
+          <button class="icon-btn" id="btn-new" type="button" aria-label="New chat" title="New chat">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+          </button>
+          <button class="icon-btn" id="btn-settings" type="button" aria-label="Settings" title="Settings">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round">
+              <circle cx="12" cy="12" r="3.1" />
+              <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6h.09A1.7 1.7 0 0 0 10 3.05V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.51 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9v.09a1.7 1.7 0 0 0 1.55 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1z" />
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- ============================ Chat log ========================== -->
+      <main class="log" id="log" aria-live="polite" aria-label="Conversation">
+        <div class="log__inner" id="log-inner"></div>
+      </main>
+
+      <!-- ============================ Composer ========================== -->
+      <div class="composer">
+        <div class="status" id="status" hidden></div>
+        <form class="composer__inner" id="composer" autocomplete="off">
+          <textarea
+            class="composer__input"
+            id="input"
+            rows="1"
+            placeholder="Say something soft…"
+            enterkeyhint="send"
+            aria-label="Message"
+          ></textarea>
+          <button class="send" id="btn-send" type="submit" aria-label="Send" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 19V5M5.5 11.5 12 5l6.5 6.5" />
+            </svg>
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- ============================ Settings =========================== -->
+    <section class="sheet" id="sheet" aria-label="Settings" aria-hidden="true">
+      <header class="sheet__header">
+        <button class="icon-btn" id="btn-close-settings" type="button" aria-label="Back">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M15 5l-7 7 7 7" />
+          </svg>
+        </button>
+        <h2 class="sheet__title">Settings</h2>
+      </header>
+
+      <div class="sheet__body">
+        <!-- Model -->
+        <div class="card">
+          <span class="card__label">Model</span>
+
+          <div class="card__row">
+            <div>
+              <div class="card__title" id="model-name">No model loaded</div>
+              <div class="card__meta" id="model-meta">Add a .gguf file to begin</div>
+            </div>
+          </div>
+
+          <div class="card__actions">
+            <button class="btn btn--primary" id="btn-pick-model" type="button">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 16V4M7.5 8.5 12 4l4.5 4.5" />
+                <path d="M4 16v2.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V16" />
+              </svg>
+              Choose .gguf
+            </button>
+            <button class="btn btn--danger" id="btn-remove-model" type="button" hidden>
+              Remove
+            </button>
+          </div>
+
+          <p class="card__note">
+            The file is copied into this app's private storage, so it stays put and
+            never leaves your phone. You only pick it once.
+          </p>
+        </div>
+
+        <!-- Persona -->
+        <div class="card">
+          <span class="card__label">Persona</span>
+
+          <div class="field">
+            <label class="field__label" for="system-prompt">System prompt</label>
+            <textarea
+              class="field__input"
+              id="system-prompt"
+              rows="4"
+              spellcheck="false"
+              placeholder="You are a medieval knight…"
+            ></textarea>
+            <p class="field__hint">
+              Sent at the top of every reply so the model stays in character. Saved as you type.
+            </p>
+          </div>
+        </div>
+
+        <!-- About -->
+        <div class="card">
+          <span class="card__label">About</span>
+          <p class="card__note">
+            Bubble Plush runs 100% on this device. No account, no server, no network
+            calls — the model, your chats and your settings all live in local storage.
+            Add it to your Home Screen for the full-screen app feel.
+          </p>
+          <p class="card__note" id="storage-note"></p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Hidden picker: `accept` keeps the iOS sheet to .gguf files where it can. -->
+    <input type="file" id="file-input" accept=".gguf,application/octet-stream" hidden />
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script type="module" src="./js/main.js"></script>
+  </body>
+</html>
