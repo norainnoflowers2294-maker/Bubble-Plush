@@ -12,6 +12,8 @@
 *::before,
 *::after {
   box-sizing: border-box;
+  /* Kills the 300 ms double-tap zoom without blocking pan or pinch. */
+  touch-action: manipulation;
 }
 
 html,
@@ -215,8 +217,26 @@ textarea {
   justify-content: flex-start;
 }
 
+/* Chrome is not text: a long press on a button shouldn't start a selection.
+   Bubbles and the prompt fields opt back in below. */
+button,
+.header,
+.brand,
+.sheet__header,
+.sheet__tabsbar,
+.card__label,
+.status,
+.orb-row__label {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
 .bubble {
+  width: fit-content;
+  min-width: 40px;
   max-width: min(82%, 30rem);
+  -webkit-user-select: text;
+  user-select: text;
   padding: 10px 14px;
   font-family: var(--font-chat);
   font-size: 15.5px;
@@ -533,6 +553,47 @@ textarea {
   letter-spacing: -0.01em;
 }
 
+/* Two tabs above the scrolling body: they switch between the two prompt
+   editors, and stay put while the panel scrolls. */
+.sheet__tabsbar {
+  padding: 8px 14px 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.sheet__tabs {
+  display: flex;
+  gap: 8px;
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.tab {
+  flex: 1 1 0;
+  padding: 9px 12px;
+  border: 1px solid rgba(255, 92, 138, 0.22);
+  border-radius: var(--r-pill);
+  background: var(--bg);
+  color: var(--pink-accent);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: 550;
+  white-space: nowrap;
+  transition: background-color 0.18s var(--ease-soft), color 0.18s var(--ease-soft),
+    border-color 0.18s var(--ease-soft), box-shadow 0.18s var(--ease-soft),
+    transform 0.12s var(--ease-soft);
+}
+
+.tab:active {
+  transform: scale(0.98);
+}
+
+.tab.is-active {
+  background: var(--pink-accent);
+  border-color: var(--pink-accent);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(255, 92, 138, 0.26);
+}
+
 .sheet__body {
   flex: 1;
   overflow-y: auto;
@@ -589,6 +650,13 @@ textarea {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+/* Both prompt panels keep the same footprint so switching tabs never makes the
+   sheet jump, and the swap is instant (no opacity/transform animation). */
+[role='tabpanel'] {
+  min-height: 300px;
+  transition: none;
 }
 
 .card__note {
@@ -654,43 +722,39 @@ textarea {
   height: 16px;
 }
 
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.field__label {
-  font-size: var(--text-sm);
-  font-weight: 550;
-  color: var(--ink-soft);
-}
-
-.field__hint {
-  font-family: var(--font-chat);
-  font-size: var(--text-xs);
-  line-height: 1.5;
-  color: var(--ink-faint);
-}
-
+/* The two prompt editors. White field, pink hairline border, Inter, and tall
+   enough that a real character description is visible without scrolling. */
 .field__input {
   width: 100%;
-  min-height: 96px;
-  padding: 12px 14px;
-  border: 1px solid var(--line-strong);
-  border-radius: 16px;
-  background: var(--bg);
+  min-height: 150px;
+  padding: 14px;
+  border: 1px solid var(--pink-user);
+  border-radius: 18px;
+  background: var(--surface);
+  color: var(--ink);
+  /* 16px: below that, iOS Safari zooms the page when the field is focused. */
   font-family: var(--font-chat);
-  font-size: var(--text-sm);
-  line-height: 1.55;
+  font-size: var(--text-base);
+  line-height: 1.6;
   resize: none;
   outline: none;
   transition: border-color 0.18s var(--ease-soft), box-shadow 0.18s var(--ease-soft);
 }
 
+.field__input::placeholder {
+  color: var(--ink-faint);
+}
+
 .field__input:focus {
-  border-color: rgba(255, 92, 138, 0.45);
-  box-shadow: 0 0 0 4px rgba(255, 92, 138, 0.08);
+  border-color: var(--pink-accent);
+  box-shadow: 0 0 0 4px rgba(255, 92, 138, 0.1);
+}
+
+.btn--save {
+  width: 100%;
+  background: var(--pink-accent);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(255, 92, 138, 0.26);
 }
 
 /* --------------------------------------------------------------------------

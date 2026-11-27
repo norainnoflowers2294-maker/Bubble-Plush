@@ -50,7 +50,7 @@ export async function getModelMeta() {
 }
 
 /** Ask the browser to keep our storage out of the "clear space" eviction pool. */
-async function requestPersistence() {
+export async function requestPersistence() {
   try {
     if (navigator.storage && navigator.storage.persist) {
       await navigator.storage.persist();

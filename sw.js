@@ -10,7 +10,7 @@
  * activate.
  */
 
-const SHELL_VERSION = 'v5';
+const SHELL_VERSION = 'v6';
 const CACHE = `bubble-plush-${SHELL_VERSION}`;
 
 /** Everything needed to boot with no network. */

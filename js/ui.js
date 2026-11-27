@@ -45,13 +45,13 @@ class UI {
     this.#streamBubble = null;
     this.#orbRow = null;
     this.#toastTimer = 0;
-    this.#promptTimer = 0;
+    /** @type {Array<{tab: HTMLElement, panel: HTMLElement}>} */
+    this.tabs = [];
   }
 
   #streamBubble;
   #orbRow;
   #toastTimer;
-  #promptTimer;
 
   /* ---------------------------------------------------------------- setup */
 
@@ -71,8 +71,12 @@ class UI {
       modelName: document.getElementById('model-name'),
       modelMeta: document.getElementById('model-meta'),
       pickModel: document.getElementById('btn-pick-model'),
+      pickModelLabel: document.getElementById('pick-model-label'),
       removeModel: document.getElementById('btn-remove-model'),
-      systemPrompt: document.getElementById('system-prompt'),
+      characterScenario: document.getElementById('character-scenario'),
+      aiRules: document.getElementById('ai-rules'),
+      saveCharacter: document.getElementById('btn-save-character'),
+      saveRules: document.getElementById('btn-save-rules'),
       storageNote: document.getElementById('storage-note'),
       fileInput: document.getElementById('file-input'),
       toast: document.getElementById('toast'),
@@ -92,6 +96,10 @@ class UI {
       this.#autoGrow();
       this.#syncSendState();
     });
+
+    // iOS can leave the whole page scrolled after the keyboard closes; snap it
+    // back so the layout doesn't sit half-way up the screen.
+    this.els.input.addEventListener('blur', () => window.scrollTo(0, 0));
 
     // Enter sends, Shift+Enter makes a newline. `isComposing` keeps IME
     // (Japanese/Chinese keyboards) from sending half a word.
@@ -120,18 +128,39 @@ class UI {
     });
 
     // ---- persona -------------------------------------------------------
-    // Save-as-you-type, debounced so we don't hammer IndexedDB per keystroke.
-    this.els.systemPrompt.addEventListener('input', () => {
-      clearTimeout(this.#promptTimer);
-      this.#promptTimer = setTimeout(() => {
-        this.handlers.onSystemPromptChange?.(this.els.systemPrompt.value);
-      }, 400);
+    // Two tabs, each with its own field and explicit Save. Arrow keys move
+    // between tabs, as expected of a tablist.
+    this.tabs = [
+      {
+        tab: document.getElementById('tab-character'),
+        panel: document.getElementById('panel-character'),
+      },
+      { tab: document.getElementById('tab-rules'), panel: document.getElementById('panel-rules') },
+    ];
+
+    this.tabs.forEach(({ tab }, index) => {
+      tab.addEventListener('click', () => this.showTab(index));
+      tab.addEventListener('keydown', (event) => {
+        const step = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
+        if (!step) return;
+        event.preventDefault();
+        const next = (index + step + this.tabs.length) % this.tabs.length;
+        this.showTab(next);
+        this.tabs[next].tab.focus();
+      });
     });
+
+    this.els.saveCharacter.addEventListener('click', () =>
+      this.handlers.onSaveCharacterScenario?.(this.els.characterScenario.value)
+    );
+    this.els.saveRules.addEventListener('click', () =>
+      this.handlers.onSaveAiRules?.(this.els.aiRules.value)
+    );
 
     // ---- scroll stickiness --------------------------------------------
     this.els.log.addEventListener('scroll', () => {
       const { scrollTop, scrollHeight, clientHeight } = this.els.log;
-      this.stickToBottom = scrollHeight - scrollTop - clientHeight < 72;
+      this.stickToBottom = scrollHeight - scrollTop - clientHeight < 60;
     }, { passive: true });
   }
 
@@ -377,16 +406,39 @@ class UI {
       this.els.modelName.textContent = meta.name || 'model.gguf';
       this.els.modelMeta.textContent = `${sizeLabel} · saved ${new Date(meta.savedAt).toLocaleDateString()}`;
       this.els.removeModel.hidden = false;
+      // Picking again overwrites the stored file, so say so.
+      this.els.pickModelLabel.textContent = 'Change model';
     } else {
       this.els.modelName.textContent = 'No model loaded';
       this.els.modelMeta.textContent = 'Add a .gguf file to begin';
       this.els.removeModel.hidden = true;
+      this.els.pickModelLabel.textContent = 'Choose .gguf';
     }
   }
 
-  setSystemPrompt(text) {
-    if (document.activeElement === this.els.systemPrompt) return; // don't fight the user
-    this.els.systemPrompt.value = text ?? '';
+  /** @param {number} index 0 = Character & Scenario, 1 = AI Rules */
+  showTab(index) {
+    this.tabs.forEach(({ tab, panel }, i) => {
+      const active = i === index;
+      tab.classList.toggle('is-active', active);
+      tab.setAttribute('aria-selected', String(active));
+      tab.tabIndex = active ? 0 : -1;
+      panel.hidden = !active;
+    });
+  }
+
+  /**
+   * Load one conversation's prompt fields into the sheet.
+   * @param {{characterScenario?: string, aiRules?: string}|null} conversation
+   */
+  setPromptFields(conversation) {
+    // Never overwrite what the user is currently typing.
+    if (document.activeElement !== this.els.characterScenario) {
+      this.els.characterScenario.value = conversation?.characterScenario ?? '';
+    }
+    if (document.activeElement !== this.els.aiRules) {
+      this.els.aiRules.value = conversation?.aiRules ?? '';
+    }
   }
 
   setStorageNote(text) {

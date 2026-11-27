@@ -90,7 +90,72 @@
         <h2 class="sheet__title">Settings</h2>
       </header>
 
+      <!-- Tabs sit outside the scrolling body so they stay reachable. -->
+      <div class="sheet__tabsbar">
+        <div class="sheet__tabs" role="tablist" aria-label="Prompt settings">
+          <button
+            class="tab is-active"
+            id="tab-character"
+            type="button"
+            role="tab"
+            aria-selected="true"
+            aria-controls="panel-character"
+          >
+            Character &amp; Scenario
+          </button>
+          <button
+            class="tab"
+            id="tab-rules"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            aria-controls="panel-rules"
+            tabindex="-1"
+          >
+            AI Rules
+          </button>
+        </div>
+      </div>
+
       <div class="sheet__body">
+        <!-- Tab 1: Character & Scenario -->
+        <div class="card" id="panel-character" role="tabpanel" aria-labelledby="tab-character">
+          <label class="card__label" for="character-scenario">Character &amp; Scenario</label>
+          <textarea
+            class="field__input"
+            id="character-scenario"
+            rows="6"
+            spellcheck="false"
+            placeholder="Describe the character and scenario in one box. Example: You are Lucious, a mysterious stranger in a neon-lit bar. The user just walked in..."
+          ></textarea>
+          <div class="card__actions">
+            <button class="btn btn--save" id="btn-save-character" type="button">
+              Save Character &amp; Scenario
+            </button>
+          </div>
+          <p class="card__note">
+            Goes at the top of every reply in this chat. Each chat keeps its own.
+          </p>
+        </div>
+
+        <!-- Tab 2: AI Rules -->
+        <div class="card" id="panel-rules" role="tabpanel" aria-labelledby="tab-rules" hidden>
+          <label class="card__label" for="ai-rules">AI Rules</label>
+          <textarea
+            class="field__input"
+            id="ai-rules"
+            rows="6"
+            spellcheck="false"
+            placeholder="Rules the AI must always follow. Example: Never break character. Keep responses under 150 words. Use *asterisks* for actions."
+          ></textarea>
+          <div class="card__actions">
+            <button class="btn btn--save" id="btn-save-rules" type="button">Save AI Rules</button>
+          </div>
+          <p class="card__note">
+            Listed before the character, so these win when the two disagree.
+          </p>
+        </div>
+
         <!-- Model -->
         <div class="card">
           <span class="card__label">Model</span>
@@ -108,7 +173,7 @@
                 <path d="M12 16V4M7.5 8.5 12 4l4.5 4.5" />
                 <path d="M4 16v2.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V16" />
               </svg>
-              Choose .gguf
+              <span id="pick-model-label">Choose .gguf</span>
             </button>
             <button class="btn btn--danger" id="btn-remove-model" type="button" hidden>
               Remove
@@ -119,25 +184,6 @@
             The file is copied into this app's private storage, so it stays put and
             never leaves your phone. You only pick it once.
           </p>
-        </div>
-
-        <!-- Persona -->
-        <div class="card">
-          <span class="card__label">Persona</span>
-
-          <div class="field">
-            <label class="field__label" for="system-prompt">System prompt</label>
-            <textarea
-              class="field__input"
-              id="system-prompt"
-              rows="4"
-              spellcheck="false"
-              placeholder="You are a medieval knight…"
-            ></textarea>
-            <p class="field__hint">
-              Sent at the top of every reply so the model stays in character. Saved as you type.
-            </p>
-          </div>
         </div>
 
         <!-- About -->

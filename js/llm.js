@@ -36,10 +36,28 @@ const logger = {
 const CHARS_PER_TOKEN = 4;
 
 /**
+ * The single system message, assembled from the two Settings tabs.
+ *
+ * Order is fixed: AI rules first, then the character/scenario. With both
+ * present the result is exactly `aiRules + "\n\n" + characterScenario`; an
+ * empty field simply drops out instead of leaving stray blank lines.
+ *
+ * @param {string} [aiRules]
+ * @param {string} [characterScenario]
+ * @returns {string}
+ */
+export function composeSystemPrompt(aiRules, characterScenario) {
+  return [aiRules, characterScenario]
+    .map((part) => (part ?? '').trim())
+    .filter(Boolean)
+    .join('\n\n');
+}
+
+/**
  * Build the exact array handed to `createChatCompletion`.
  *
  * Order is fixed by the app's contract:
- *   1. the system prompt (roleplay persona)
+ *   1. one system message: AI rules, then character & scenario
  *   2. a sliding window of recent history — at most `maxTurns` pairs
  *   3. the new user message
  *
@@ -53,13 +71,20 @@ const CHARS_PER_TOKEN = 4;
  * when the history begins with an orphaned assistant message.
  *
  * @param {object} params
- * @param {string} params.systemPrompt
+ * @param {string} [params.aiRules]
+ * @param {string} [params.characterScenario]
  * @param {Array<{role: 'user'|'assistant', content: string}>} params.messages
  *        Full conversation, newest message last.
  * @param {number} [params.maxTurns]
  * @returns {Array<{role: 'system'|'user'|'assistant', content: string}>}
  */
-export function buildPrompt({ systemPrompt, messages, maxTurns = MODEL.maxTurns }) {
+export function buildPrompt({
+  aiRules = '',
+  characterScenario = '',
+  messages,
+  maxTurns = MODEL.maxTurns,
+}) {
+  const systemPrompt = composeSystemPrompt(aiRules, characterScenario);
   const newMessage = messages[messages.length - 1];
   const history = messages.slice(0, -1);
 
@@ -152,15 +177,16 @@ export class LocalModel {
    * simply replace the bubble contents. Stops early on `signal.abort()`.
    *
    * @param {object} params
-   * @param {string} params.systemPrompt
+   * @param {string} [params.aiRules]
+   * @param {string} [params.characterScenario]
    * @param {Array<{role: 'user'|'assistant', content: string}>} params.messages
    * @param {AbortSignal} [params.signal]
    * @returns {AsyncGenerator<string, void, unknown>}
    */
-  async *generate({ systemPrompt, messages, signal }) {
+  async *generate({ aiRules, characterScenario, messages, signal }) {
     if (!this.isReady) throw new Error('The model is not loaded yet.');
 
-    const prompt = buildPrompt({ systemPrompt, messages });
+    const prompt = buildPrompt({ aiRules, characterScenario, messages });
 
     const stream = await this.#wllama.createChatCompletion(prompt, {
       stream: true,

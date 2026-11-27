@@ -12,14 +12,8 @@
  *   4. if there is no model, show the .gguf picker instead
  */
 
-import { DEFAULT_SYSTEM_PROMPT, TITLE_MAX_LENGTH, UNTITLED, STORAGE } from './config.js';
-import {
-  openDB,
-  getMeta,
-  setMeta,
-  putConversation,
-  getRecentConversation,
-} from './db.js';
+import { TITLE_MAX_LENGTH, UNTITLED } from './config.js';
+import { openDB, putConversation, getRecentConversation } from './db.js';
 import {
   getModelMeta,
   readModelBlob,
@@ -28,6 +22,7 @@ import {
   isGguf,
   formatBytes,
   getStorageEstimate,
+  requestPersistence,
 } from './model-store.js';
 import { localModel } from './llm.js';
 import { ui } from './ui.js';
@@ -36,10 +31,19 @@ import { ui } from './ui.js';
 /* State                                                                      */
 /* ========================================================================== */
 
+/**
+ * @typedef {object} Conversation
+ * @property {string} id
+ * @property {string} title
+ * @property {string} characterScenario  who the AI is, and where we are
+ * @property {string} aiRules            hard rules that outrank the scenario
+ * @property {Array<{role: string, content: string}>} messages
+ * @property {number} lastModified
+ */
+
 const state = {
-  /** @type {{id: string, title: string, systemPrompt: string, messages: Array<{role: string, content: string}>, lastModified: number}|null} */
+  /** @type {Conversation|null} */
   conversation: null,
-  settings: { systemPrompt: DEFAULT_SYSTEM_PROMPT },
   /** 'unknown' | 'missing' | 'loading' | 'ready' | 'error' */
   modelStatus: 'unknown',
   /** @type {{name: string, size: number, savedAt: number, mode: string}|null} */
@@ -58,14 +62,36 @@ const uid = () =>
     ? crypto.randomUUID()
     : `c_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 9)}`;
 
-function createConversation(systemPrompt) {
+function createConversation() {
   return {
     id: uid(),
     title: UNTITLED,
-    systemPrompt,
+    characterScenario: '',
+    aiRules: '',
     messages: [],
     lastModified: Date.now(),
   };
+}
+
+/**
+ * Fill in fields that older records may lack, so the rest of the app can
+ * assume they exist. Conversations written before the two-tab settings screen
+ * had a single `systemPrompt`; keep that text as the character.
+ * @param {any} raw
+ * @returns {Conversation}
+ */
+function normalizeConversation(raw) {
+  const conversation = { ...raw };
+
+  if (typeof conversation.characterScenario !== 'string') {
+    conversation.characterScenario =
+      typeof conversation.systemPrompt === 'string' ? conversation.systemPrompt : '';
+  }
+  if (typeof conversation.aiRules !== 'string') conversation.aiRules = '';
+  if (!Array.isArray(conversation.messages)) conversation.messages = [];
+  delete conversation.systemPrompt;
+
+  return conversation;
 }
 
 /** First user message becomes the conversation title, clipped to one line. */
@@ -258,9 +284,10 @@ async function sendMessage(text) {
 
   try {
     // The whole conversation is passed in; llm.js rebuilds the prompt
-    // ([system] + [sliding window] + [new user message]) on every call.
+    // ([rules + scenario] + [sliding window] + [new user message]) every call.
     for await (const partial of localModel.generate({
-      systemPrompt: conversation.systemPrompt,
+      aiRules: conversation.aiRules,
+      characterScenario: conversation.characterScenario,
       messages: conversation.messages,
       signal: controller.signal,
     })) {
@@ -299,25 +326,33 @@ async function startNewChat() {
     return;
   }
 
-  const conversation = createConversation(state.settings.systemPrompt);
+  const conversation = createConversation();
   await putConversation(conversation);
   state.conversation = conversation;
 
   ui.renderConversation(conversation);
-  ui.setSystemPrompt(conversation.systemPrompt);
+  ui.setPromptFields(conversation);
   ui.closeSettings();
 
   if (state.modelStatus === 'ready') ui.showGreeting();
   else if (state.modelStatus === 'missing') ui.showOnboarding();
 }
 
-/** Persona edits apply to the active chat and become the default for new ones. */
-async function saveSystemPrompt(text) {
-  state.settings.systemPrompt = text;
-  if (state.conversation) state.conversation.systemPrompt = text;
+/**
+ * Write one prompt field on the *current* conversation and persist it.
+ * @param {'characterScenario'|'aiRules'} field
+ * @param {string} value
+ */
+async function savePromptField(field, value) {
+  if (!state.conversation) {
+    state.conversation = createConversation();
+    await putConversation(state.conversation);
+  }
 
-  await setMeta(STORAGE.keys.settings, state.settings);
+  state.conversation[field] = String(value ?? '').trim();
   await persistConversation();
+
+  ui.toast('Saved ✓');
 }
 
 /* ========================================================================== */
@@ -370,35 +405,37 @@ function registerServiceWorker() {
 async function boot() {
   bindViewportHeight();
 
+  // Ask for durable storage up front: Safari evicts "best effort" origins, and
+  // losing a 1 GB model is the one thing this app can't recover from cheaply.
+  requestPersistence();
+
   ui.init({
     onSend: sendMessage,
     onStop: stopGenerating,
     onNewChat: startNewChat,
     onOpenSettings: () => {
       ui.renderModelInfo(state.modelMeta ?? null, state.modelMeta ? formatBytes(state.modelMeta.size) : '');
+      ui.setPromptFields(state.conversation);
       updateStorageNote();
     },
     onCloseSettings: () => {},
     onPickModel: () => document.getElementById('file-input').click(),
     onModelFile: importModel,
-    onSystemPromptChange: saveSystemPrompt,
+    onSaveCharacterScenario: (text) => savePromptField('characterScenario', text),
+    onSaveAiRules: (text) => savePromptField('aiRules', text),
     onRemoveModel: removeModel,
   });
 
   await openDB();
 
-  // Settings + most recent conversation.
-  const savedSettings = await getMeta(STORAGE.keys.settings);
-  state.settings = { systemPrompt: DEFAULT_SYSTEM_PROMPT, ...(savedSettings ?? {}) };
-  ui.setSystemPrompt(state.settings.systemPrompt);
-
+  // Most recent conversation, with any missing prompt fields filled in.
   let conversation = await getRecentConversation();
-  if (!conversation) {
-    conversation = createConversation(state.settings.systemPrompt);
-    await putConversation(conversation);
-  }
+  conversation = conversation ? normalizeConversation(conversation) : createConversation();
+  await putConversation(conversation);
+
   state.conversation = conversation;
   ui.renderConversation(conversation);
+  ui.setPromptFields(conversation);
 
   // Model: import once, auto-load forever. (Whether to greet or to ask for a
   // model is decided below, once we know whether one exists.)

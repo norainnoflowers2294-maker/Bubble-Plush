@@ -6,7 +6,7 @@
 export const APP = {
   name: 'Bubble Plush',
   /** Bumped whenever the service worker shell changes (keep in sync with sw.js). */
-  shellVersion: 'v5',
+  shellVersion: 'v6',
 };
 
 /**
@@ -32,11 +32,6 @@ export const MODEL = {
   },
 };
 
-/** Used for brand-new conversations, and as the placeholder in Settings. */
-export const DEFAULT_SYSTEM_PROMPT =
-  'You are Bubble Plush, a soft-spoken and encouraging companion. ' +
-  'Keep replies warm, gentle and fairly short. Ask a small question when it feels natural.';
-
 export const UNTITLED = 'New chat';
 
 /** Where things are stored. */
@@ -49,7 +44,6 @@ export const STORAGE = {
   modelFileName: 'model.gguf',
   /** Keys used inside the IndexedDB `meta` store. */
   keys: {
-    settings: 'app-settings',
     modelMeta: 'model-meta',
   },
 };

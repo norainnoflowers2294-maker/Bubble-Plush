@@ -9,8 +9,8 @@ server, no network calls — not even to download the model.
 
 ## What it is
 
-A single-page PWA with a small, quiet interface: one chat, one personality, one
-model. The language model runs locally in WebAssembly via
+A single-page PWA with a small, quiet interface: one chat at a time, one model.
+The language model runs locally in WebAssembly via
 [wllama](https://github.com/ngxson/wllama) (llama.cpp compiled to wasm), and
 everything it produces is stored in the browser's own storage.
 
@@ -23,8 +23,12 @@ animation doesn't help you talk to the model, it isn't there.
 - **Model once, then never again.** You pick a `.gguf` file from the phone's
   file picker exactly once. It is copied into the app's private storage (OPFS,
   with an IndexedDB fallback) and loads itself on every launch afterwards.
-- **Chats persist.** Conversations and settings live in IndexedDB. Reload,
-  close the app, come back tomorrow — the last conversation is on screen.
+- **Chats persist.** Conversations live in IndexedDB, each with its own
+  character and rules. Reload, close the app, come back tomorrow — the last
+  conversation is on screen, prompt and all.
+- **Two prompt tabs.** Settings has *Character & Scenario* and *AI Rules*.
+  Both are saved per conversation, so a noir bartender and a medieval knight
+  don't bleed into each other.
 - **Mobile-first, iOS-first.** Safe-area insets, a visual-viewport height fix
   for the on-screen keyboard, `enterkeyhint="send"`, Home Screen meta tags.
 - **Soft by design.** Warm off-white background, one saturated pink (your
@@ -76,7 +80,7 @@ Removing the model (Settings → Remove) deletes only the model file; chats stay
 ```
 index.html ──► js/main.js        app controller: state, model lifecycle, chat loop
                  ├─ js/ui.js      view: DOM only, never touches storage or wllama
-                 ├─ js/db.js      IndexedDB: conversations, settings, model fallback
+                 ├─ js/db.js      IndexedDB: conversations, model fallback
                  ├─ js/model-store.js  OPFS import/read/delete (+ IDB fallback)
                  ├─ js/llm.js     prompt building + wllama streaming wrapper
                  └─ js/config.js  all the knobs
@@ -84,8 +88,10 @@ sw.js ──► precaches the shell, cache-first, version-bumped by hand
 ```
 
 **Prompting.** wllama is stateless, so every turn rebuilds the prompt from
-IndexedDB: system prompt, then a sliding window of the last ten user/assistant
-pairs, then the new message. The window is also trimmed by a character budget
+IndexedDB: one system message (AI rules, a blank line, then the character &
+scenario), a sliding window of the last ten user/assistant pairs, then the new
+message. Rules come first because models weight the top of the system message
+most heavily. The window is also trimmed by a character budget
 derived from the context size, because ten long messages can still overflow a
 4096-token window. `js/llm.js#buildPrompt` is pure and easy to unit-test.
 
@@ -106,8 +112,8 @@ included) so there is no CDN dependency at runtime.
 | --- | --- | --- |
 | Model weights | OPFS `models/model.gguf` | big file, streamed in, private to the origin |
 | Model weights (fallback) | IndexedDB `model` store | older iOS Safari without `createWritable()` |
-| Conversations | IndexedDB `conversations` | source of truth for history |
-| Settings, model metadata | IndexedDB `meta` | tiny key/value records |
+| Conversations + their prompts | IndexedDB `conversations` | source of truth for history |
+| Model metadata | IndexedDB `meta` | tiny key/value records |
 | App shell | Cache API | precached by the service worker |
 
 ## Project layout
