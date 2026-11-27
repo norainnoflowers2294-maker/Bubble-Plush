@@ -118,6 +118,11 @@ function friendlyError(error) {
   if (/version mismatch/i.test(message)) {
     return 'This .gguf was built for a different llama.cpp. Try another file.';
   }
+  // The wasm runtime itself failed to compile — a browser capability problem,
+  // not something the user can fix by picking a different file.
+  if (/WebAssembly|CompileError|doesn.t parse|memory64/i.test(message)) {
+    return 'This browser can’t run the model runtime. Update it, then reload.';
+  }
   if (/template/i.test(message)) {
     return 'This model has no chat template, so it can’t chat. Try an instruct model.';
   }

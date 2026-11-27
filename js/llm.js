@@ -6,10 +6,12 @@
  * • wllama is stateless. Every call to `generate()` rebuilds the whole prompt
  *   from scratch: [system prompt] + [sliding window] + [new user message].
  *   Nothing is remembered between calls except what we pass in.
- * • We pin wllama 2.4.0's *single-thread* build. It needs no SharedArrayBuffer,
- *   so it runs without COOP/COEP headers — which a static, backend-less PWA
- *   cannot set — and it avoids the ~28 MB JSPI/compat payload that newer
- *   builds require on Safari. Total wasm cost: ~2.7 MB, cached by the SW.
+ * • We pin wllama 2.3.7's *single-thread* build: a 2.1 MB wasm with a 32-bit
+ *   linear memory. It needs no SharedArrayBuffer (so no COOP/COEP headers,
+ *   which a static, backend-less PWA cannot set) and — unlike 2.4.0 and 3.x —
+ *   it does not require the WebAssembly Memory64 proposal, which Safari below
+ *   18.4 and Chrome below 133 cannot compile at all. Newer wllama builds also
+ *   drag in a ~28 MB JSPI/compat payload on Safari.
  * • Generation is exposed as an async generator of *cumulative* text, which is
  *   exactly what the UI needs to repaint a streaming bubble.
  */

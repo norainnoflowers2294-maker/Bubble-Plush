@@ -99,12 +99,17 @@ derived from the context size, because ten long messages can still overflow a
 text, so the UI just repaints one bubble. An `AbortController` stops generation;
 whatever streamed so far is kept.
 
-**Why wllama 2.4.0, single-thread.** It is self-contained (one JS file plus a
-2.7 MB wasm) and needs neither `SharedArrayBuffer` nor COOP/COEP headers — which
-a static, backend-less site cannot set. Newer wllama builds pull in a ~28 MB
-JSPI/compat payload for Safari, which is a bad trade for a phone app that must
-work offline. The runtime is vendored in `vendor/wllama/` (MIT, licence
-included) so there is no CDN dependency at runtime.
+**Why wllama 2.3.7, single-thread.** It is self-contained (one JS file plus a
+2.1 MB wasm) and needs neither `SharedArrayBuffer` nor COOP/COEP headers — which
+a static, backend-less site cannot set. More importantly it keeps a **32-bit**
+linear memory. wllama 2.4.0 through 3.8.x compile to a 64-bit memory, which
+requires the WebAssembly Memory64 proposal: Safari below 18.4 and Chrome below
+133 refuse the module with `WebAssembly.Module doesn't parse … Memory64 is not
+supported`, before a single byte of the `.gguf` is read. 4.0.0 is 32-bit again
+but ships a 10.8 MB wasm. If you bump the vendored runtime, check the memory
+type first — `flags=0x05`/`0x07` in the memory import means 64-bit. The runtime
+is vendored in `vendor/wllama/` (MIT, licence included) so there is no CDN
+dependency at runtime.
 
 **Storage layout.**
 
